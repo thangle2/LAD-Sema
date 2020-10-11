@@ -1,0 +1,171 @@
+\ reaction time program
+\ lm reynolds
+\ 2014 june
+\ revised august 2015 - changed right nose poke input from 2 to 3
+
+\ Inputs
+^Left_Lever  = 1
+^Right_Lever = 3
+
+\ Outputs
+^Pump     = 10
+^LeftLight  = 4
+^RightLight = 5
+^Tone       = 6
+^HouseLight = 7
+^Left_Extend=1
+^Right_Extend=2
+
+
+\ Z-pulses
+\  Z1 = START 3 sec trial
+\  Z2 = Restart ITI after response
+\  Z3 = Turn off dispenser
+\  Z4 = START pretrial period
+\  Z5 = Reset ITI and count premature response
+\  Z6 = Restart ITI after omission
+
+
+LIST Y = 3.0", 6.0", 9.0", 12.0"
+
+
+\ Variables
+\  A = Trials
+\  B = Responses/Reward
+\  C = Omissions
+\  D = All Lever Pressed
+\  E = Number of pretrials
+\  F = Number of premature responses
+\  J = inactive Lever Pressed
+\  M = Minutes
+\  N = Session timer
+\  X = Pretrial time array
+
+
+S.S.1,  	\ main reward logic
+
+S1,     		\ (wait for Z1 pulse) at Z1 move to S2
+	#Z1: ---> S2
+
+S2,    		 \ DURING 3 SEC TRIAL: at Lever Pressed, turn on dispenser
+        	 	\ go to S3 (after 3 sec return to S1)
+  	#R^Left_Lever: ON ^Pump---> S3
+  	3": Z6 ---> S1
+
+S3,     		\ after 0.1sec turn off dispenser, issue Z2
+        		\ move to S1 (only after response)
+  	0.5": OFF ^Pump; Z2 ---> S1
+
+
+S.S.2,  	 \ pretrial and premature response logic
+
+S1,    		 \ at Z4 pulse, move to S2 (start pretrial)
+  	#Z4: ---> S2
+
+S2,     		\ at Lever Pressed(premature response), turn off cue light and house light
+        		\ issue Z5 pulse (restart ITI)
+        		\ return to S1 (OR Z1 pulse ends pretrial, begins trial)
+  	#R^Left_Lever: OFF ^HouseLight; Z5 ---> S1
+  	#Z1: ---> S1
+
+
+S.S.3,  	\ cue lights
+
+S1,     		\ at START command OR Z5 pulse move to S2; begin 10 sec ITI
+  	#START ! #Z5: ---> S2
+
+S2,     		\ after 10 sec ITI, turn on house light, issue Z4 pulse, move to S3 (begin pretrial)
+  	10": ON ^HouseLight, ^Left_Extend, ^Right_Extend; RANDD X = Y; Z4 ---> S3
+
+S3,     		\ After random time 9-24 sec end pretrial and begin trial, 
+		\turn on cue light
+		\issue Z1 pulse move to S4
+  	X#T: ON ^LeftLight; Z1 ---> S4
+  	#Z5: ---> S2
+
+S4,     		\ turn off cue light after reward delivery; go to S5
+        		\ At Z6 (omission) turn off house and cue lights, go to S2 to for 10 sec ITI
+  	#Z2: OFF ^LeftLight ---> S5
+  	#Z6: OFF ^LeftLight, ^HouseLight ---> S2
+
+S5,     		\ 3 seconds after cue light off, turn off house light, go to S2 for 10 sec ITI
+  	3": OFF ^HouseLight ---> S2
+
+
+S.S.4,  	\ trial counter and display
+
+S1,
+  	#START: SHOW 2,trials,A ---> S2
+
+S2,
+  	#Z1: ADD A; SHOW 2,trials,A ---> SX
+
+
+S.S.5,  	\ response counter and display
+
+S1,
+  	#START: SHOW 3,responses,B ---> S2
+
+S2,
+  	#Z2: ADD B; SHOW 3,responses,B ---> SX
+
+
+S.S.6,  	\ omission counter and display
+
+S1,
+  	#START: SHOW 4,omissions,C ---> S2
+
+S2,
+  	#Z6: ADD C; SHOW 4,omissions,C ---> SX
+
+
+S.S.7,  	\ response counter and display
+
+S1,
+  	#START: SHOW 5,Left Lever Pressed,D ---> S2
+
+S2,
+  	#R^Left_Lever: ADD D; SHOW 5,Left Lever Pressed,D ---> SX
+
+
+S.S.8,  	\ pretrial counter and display
+
+S1,
+  	#START: SHOW 6,pretrials,E ---> S2
+
+S2,
+  	#Z4: ADD E; SHOW 6,pretrials,E ---> SX
+
+
+S.S.9,  	\ premature response counter and display
+
+S1,
+  	#START: SHOW 7,premature response,F ---> S2
+
+S2,
+  	#Z5: ADD F; SHOW 7,premature response,F ---> SX
+
+
+S.S.10,  	\ inactive Lever Pressed
+
+S1,
+  	#START: SHOW 8,inactive Lever Pressed,J ---> S2
+
+S2,
+  	#R^Right_Lever: ADD J; SHOW 8, inactive Lever Pressed,J ---> SX
+
+
+S.S.11, 	\ session timer
+
+S1,     		\ start session timer @ start command
+  	#START: SET M = 30;
+           SHOW 1,Session,N ---> S2
+
+S2,     		\ increment every second; once minutes = 40 then stop abort
+  	1" : ADD N; SHOW 1,Session,N;
+       		IF N/60 >= M [@True, @False]
+          		@True:  ---> S3
+          		@False: ---> SX
+
+S3,
+  	3": ---> STOPABORTFLUSH

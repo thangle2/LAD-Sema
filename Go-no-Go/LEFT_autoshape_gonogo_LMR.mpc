@@ -1,0 +1,94 @@
+\ autoshaping program
+\ lm reynolds
+\ 2014 june
+\ updated august 2015 - changed outputs/inputs 
+
+\ outputs
+^Pump = 3 
+^Left_light = 4
+^Right_light = 5
+^Tone = 6
+^House_light = 7
+^Left_Extend=1
+^Right_Extend=2
+
+\ inputs
+^Left_Lever = 1
+^Right_Lever = 3
+
+
+\ variables
+
+\A = Trials
+\B = Responses
+\D = All active hole lever pressed 
+\J = inactive hole lever pressed
+
+S.S.1,				\ main control logic 
+S1,
+	#START: ON^House_light, ^Left_Extend, ^Right_Extend ---> S2
+
+S2, 
+	#Z2:  ---> S3
+
+S3,
+	#R^Left_Lever: ON ^Pump; Z1 ---> S4
+	#Z3: ---> S2
+S4, 
+	#Z3 :  ---> S2	
+
+S.S.2,				\ cue lights
+S1,
+	#START:  ---> S2
+
+S2, 
+	10": ON^Left_light; Z2---> S3
+
+S3, 
+	#Z1 ! 9": OFF^Left_light; Z3 ---> S2
+
+
+S.S.3, 			\ response counter and display
+S1, 
+	#START: SHOW 1, lever pressed active hole, D ---> S2
+
+S2,
+	#R^Left_Lever: ADD D; SHOW 1, lever pressed active hole, D --->SX
+
+S.S.4, 			\ response counter and display
+S1, 
+	#START: SHOW 2, Trials, A ---> S2
+
+S2,
+	#Z2: ADD A; SHOW 2, Trials, A --->SX
+
+
+S.S.5,				\ reward counter and display
+S1,
+	#Z1: ADD B; SHOW 3, Rewards, B ---> S2
+
+S2, 
+	0.5": OFF^Pump ---> S1
+
+
+S.S.6, 			\ inactive lever pressed
+S1, 
+	#START: SHOW 5, inactive lever pressed, J ---> S2
+
+S2,
+	#R^Right_Lever: ADD J; SHOW 5, inactive lever pressed, J --->SX
+
+
+S.S.7,				\ session timer
+
+S1,				\ start session timer @ start command
+	#START: SHOW 4, Session, N; SET M = 20 ---> S2
+
+S2,					\ increment every second; once minutes = 40 then stop abort
+	1" : ADD N; SHOW 4, Session, N;
+		IF N/60 >= M [@True, @False]
+			@True: ---> S3 
+			@False: ---> SX
+
+S3, 
+	3": ---> STOPABORTFLUSH
